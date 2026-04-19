@@ -1,0 +1,1384 @@
+<!--
+Copyright 2025 MIDILLI Tech
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>MIDI Web Tool - Analyzer, Monitor & Sender</title>
+    <meta name="description" content="MIDI Web Tool is a web-based tool to view and analyze incoming MIDI messages and send MIDI messages in real time.">
+    <meta name="robots" content="index, follow">
+    <style>
+        body { font-family: 'Segoe UI', Arial, sans-serif; margin: 2em; background: #222222; color: #F3F6F9; }
+        table { border-collapse: collapse; width: 100%; }
+        th, td { border: 1px solid #374151; padding: 6px 12px; text-align: center; vertical-align: middle; }
+        th { background: #2D3748; color: #FFF; }
+        td { background: #23272F; color: #F3F6F9; }
+        #inputs { margin-top: 2em; margin-bottom: 1em; display: flex; align-items: center; gap: 1.2em; }
+        h1 { text-align: center; color: #fff; }
+        /* Base styles */
+        select {
+            background: #374151;
+            color: #F3F6F9;
+            border: 1px solid #4B5563;
+            padding: 6px 14px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background 0.2s, color 0.2s;
+        }
+        button, input[type="button"] {
+            background: #2D3748;
+            color: #FFF;
+            border: 1px solid #FFF;
+            padding: 6px 14px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background 0.2s, color 0.2s;
+        }
+        input[type="checkbox"] {
+            background: #374151;
+            color: #F3F6F9;
+            border: 1px solid #4B5563;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background 0.2s, color 0.2s;
+        }
+        /* Focus states */
+        select:focus, button:focus, input[type="button"]:focus {
+            outline: 2px solid #FFF;
+        }
+        /* Hover states */
+        select:hover {
+            background: #4B5563;
+            color: #FFF;
+        }
+        button:hover, input[type="button"]:hover {
+            background: #FFF;
+            color: #222222;
+        }
+        a { color: #FFF; }
+        /* Responsive: Make #inputs contents larger on mobile */
+        @media (max-width: 1000px) {
+            #inputs {
+                font-size: 1.4em;
+                flex-direction: column;
+                gap: 1.5em;
+            }
+            #inputs label,
+            #inputs select,
+            #inputs button {
+                font-size: 1.50em;
+                padding: 10px 18px;
+            }
+            #inputs input[type="number"] {
+                font-size: 1em;
+                padding: 10px 18px;
+            }
+            #inputs input[type="checkbox"] {
+                font-size: 1.20em;
+                padding: 10px 18px;
+                width: 1.2em;
+                height: 1.2em;
+            }
+            #inputs select {
+                min-width: 90vw;
+            }
+            #inputs > div {
+                flex-direction: column;
+                gap: 1em;
+            }
+            #aboutModal {
+                padding: 1.5em;
+                max-width: 90vw;
+                font-size: 1.5em;
+            }
+        }
+    </style>
+</head>
+<body>
+<noscript>
+    <div style="background: #ffeb3b; color: #222; padding: 1.5em; margin: 2em auto; border-radius: 8px; max-width: 700px; font-size: 1.15em; text-align: center; font-weight: bold;">
+        This site allows you to view and analyze MIDI messages from your connected MIDI devices and send MIDI messages in real time.<br>
+        JavaScript is needed to access your MIDI devices and display incoming MIDI data and send.<br><br>
+        Please enable JavaScript in your browser settings and reload the page.
+    </div>
+</noscript>
+    <a href="https://soundcloud.com/jmfcarreirah" target="_blank" style="position: absolute; left: 2em; top: 1em; font-size: 1.2em; color: #fff; text-decoration: none; font-weight: bold; z-index: 10; display: flex; flex-direction: column; align-items: center;">
+        <img src="https://i1.sndcdn.com/artworks-k8pMgeefVCye3Ick-yf25Zw-t500x500.jpg" alt="Logo" style="width:40px; height:auto; margin-bottom:2px;">
+        MIDILLI Tech
+    </a>
+    <div style="margin-top: 70px;">
+        <h1>MIDI Web Tool</h1>
+    </div>
+    <p style="text-align:center; margin: 1em 0; color: #ccc; font-size:1.1em;">
+        Select the MIDI input(s) you want to monitor from the list and press Connect.<br>
+        Use the Ctrl/Cmd key to select or deselect multiple inputs.
+        You can also send MIDI messages to the selected output device.<br>
+    </p>
+    <div id="inputs">
+        <label for="inputSelect">MIDI Input:</label>
+        <select id="inputSelect" multiple size="4"></select>
+        <button id="connectBtn">Connect</button>
+        <button id="disconnectBtn" style="display:none;">Disconnect</button>
+        <div style="display: flex; flex-direction: row; justify-content: center; flex-wrap: wrap; gap: 0.5em; align-items: center; margin-bottom: 0.5em;">
+            <label for="maxMessagesInput">Show last:
+            <input id="maxMessagesInput" type="number" min="1" max="1000" value="10" style="width:80px;" title="Max messages to show in log">
+            </label>
+            <button id="filtersBtn">Filters</button>
+            <button id="refreshBtn">Refresh Devices</button>
+            <label style="margin-left:0.5em; display: flex; align-items: center; gap: 0.3em;">
+                <input type="checkbox" id="autoScroll" checked>
+                Auto Scroll
+            </label>
+            <button id="clearBtn">Clear</button>
+            <button id="exportBtn">Export</button>
+        </div>
+        <!-- Filters Modal -->
+        <div id="filtersModal" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.7); z-index:1000; align-items:center; justify-content:center;">
+            <form id="filtersForm" style="background:#222; color:#fff; padding:2em 2em 1.5em 2em; border-radius:8px; max-width:90vw; max-height:90vh; box-shadow:0 4px 32px #000; display:flex; flex-direction:column; gap:1.2em;" onsubmit="return false;">
+                <h2 style="margin-top:0;">MIDI Filters</h2>
+                <div>
+                    <strong>Channels:</strong>
+                    <div style="margin:0.5em 0 0.5em 0; display:flex; gap:0.5em;">
+                        <button type="button" id="channelsSelectAllBtn" style="padding:2px 10px; font-size:0.95em;">Select All</button>
+                        <button type="button" id="channelsSelectNoneBtn" style="padding:2px 10px; font-size:0.95em;">Select None</button>
+                        <button type="button" id="channelsInvertBtn" style="padding:2px 10px; font-size:0.95em;">Invert</button>
+                    </div>
+                    <div id="channelCheckboxes" style="margin-top:0.5em; display:flex; flex-wrap:wrap; gap:0.5em;"></div>
+                </div>
+                <div>
+                    <strong>Types:</strong>
+                    <div style="margin:0.5em 0 0.5em 0; display:flex; gap:0.5em;">
+                        <button type="button" id="typesSelectAllBtn" style="padding:2px 10px; font-size:0.95em;">Select All</button>
+                        <button type="button" id="typesSelectNoneBtn" style="padding:2px 10px; font-size:0.95em;">Select None</button>
+                        <button type="button" id="typesInvertBtn" style="padding:2px 10px; font-size:0.95em;">Invert</button>
+                    </div>
+                    <div id="typeCheckboxes" style="margin-top:0.5em; display:flex; flex-wrap:wrap; gap:1em;">
+                        <label><input type="checkbox" name="type" value="Note On" checked> Note On</label>
+                        <label><input type="checkbox" name="type" value="Note Off" checked> Note Off</label>
+                        <label><input type="checkbox" name="type" value="CC" checked> CC</label>
+                        <label><input type="checkbox" name="type" value="Program" checked> Program</label>
+                        <label><input type="checkbox" name="type" value="Pitch Bend" checked> Pitch Bend</label>
+                        <label><input type="checkbox" name="type" value="SysEx" checked> SysEx</label>
+                        <label><input type="checkbox" name="type" value="Clock" checked> Clock</label>
+                        <label><input type="checkbox" name="type" value="Start" checked> Start</label>
+                        <label><input type="checkbox" name="type" value="Stop" checked> Stop</label>
+                        <label><input type="checkbox" name="type" value="Continue" checked> Continue</label>
+                        <label><input type="checkbox" name="type" value="Active Sense" checked> Active Sense</label>
+                        <label><input type="checkbox" name="type" value="Reset" checked> Reset</label>
+                    </div>
+                </div>
+                <div style="display:flex; justify-content:flex-end; gap:1em; margin-top:1.5em;">
+                    <button id="filtersOkBtn">OK</button>
+                </div>
+            </form>
+        </div>
+        <label for="outputSelect" style="margin-left:1em;">MIDI Output:</label>
+        <select id="outputSelect">
+        </select>
+        <button id="sendBtn">Send</button>
+        <div style="flex:1"></div>
+        <button id="pianoRollBtn" style="margin-left:1em;">Piano Roll</button>
+        <button id="ccAnalyzerBtn" style="margin-left:1em;">CC Analyzer</button>
+        <!-- CC Analyzer Modal -->
+        <div id="ccAnalyzerModal" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.7); z-index:1000; align-items:center; justify-content:center;">
+            <div style="background:#222; color:#fff; padding:1em 1em 1em 1em; border-radius:8px; max-width:95vw; max-height:90vh; box-shadow:0 4px 32px #000; display:flex; flex-direction:column; align-items:center;">
+                <h2 style="margin-top:0;">CC Analyzer</h2>
+                <div style="font-size:0.95em; color:#bbb; margin-bottom:0.5em;">
+                    Hold <b>Ctrl</b> (Windows) or <b>Cmd</b> (Mac) and click to select up to 4 CC numbers.
+                </div>
+                <div style="display:flex; align-items:center; gap:1em; margin-bottom:0.7em;">
+                    <label for="ccAnalyzerCCSelect" style="font-size:0.95em; color:#aaa;">CC Numbers:</label>
+                    <select id="ccAnalyzerCCSelect" multiple size="6" style="font-size:1em; padding:2px 6px; min-width:90px;" title="Select up to 4 CC numbers"></select>
+                    <button id="ccAnalyzerClearBtn" style="margin-left:1em; font-size:1em; padding:2px 10px;">Clear</button>
+                </div>
+                <canvas id="ccAnalyzerCanvas" width="800" height="220" style="background:#111; border-radius:6px; margin-bottom:1em; width:90vw; max-width:800px; height:220px;"></canvas>
+                <button id="ccAnalyzerCloseBtn" style="margin-top:0.5em;">Close</button>
+            </div>
+        </div>
+        <button id="aboutBtn">Help/About</button>
+    </div>
+    <div id="aboutModal" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.7); z-index:1000; align-items:center; justify-content:center;">
+        <div style="background:#222; color:#fff; padding:2em 2em 1.5em 2em; border-radius:8px; max-width:90vw; max-height:90vh; box-shadow:0 4px 32px #000;">
+            <h2 style="margin-top:0;">About</h2>
+            <div style="max-height: 32vh; overflow-y: auto; padding-right: 0.5em;">
+                <p>
+                    This open-source MIDI tool allows you to monitor all incoming MIDI messages from your selected devices and send custom MIDI messages to any connected output device, including Note, Control Change (CC), Clock, Program Change (PC), SysEx (System Exclusive), and more.<br><br>
+                    All MIDI data is processed locally in your browser—nothing is sent or stored anywhere else.<br><br>
+                    You can export your log using the Export button—choose to export all columns (press 1) or only raw MIDI messages (press 2). The Filters button lets you select which message types and channels you want to see in the log. Use the "Show last" box to limit how many recent messages are displayed. The button in the Raw Message column lets you toggle between hexadecimal and decimal display for message data.<br><br>
+                    Supported browsers include Google Chrome, Edge, and Firefox (experimental). If you do not see your MIDI device, please ensure permission is granted, the device is connected and not in use by another application, then refresh the page.<br>
+                    After connecting a new device, use the Refresh Devices button to update the device list.<br><br>
+                    To monitor, select one or more MIDI input devices (hold Ctrl/Cmd to select multiple) and press Connect. To send messages, select a MIDI output device and use the Send button.<br>
+                    You can disconnect inputs at any time by clicking Disconnect.<br>
+                    Enable Auto Scroll to keep the latest messages in view.
+                </p>
+                <hr style="margin:1em 0; border:0; border-top:1px solid #444;">
+                <strong>Piano Roll:</strong>
+                <div style="text-align:left; margin:0.5em 0 0 1.2em; color:#bbb; font-size:1em;">
+                    The Piano Roll displays recent MIDI notes visually as bars, where the length of each bar represents the duration of the note and the color indicates its velocity (intensity). 
+                    You can adjust how many seconds of note history are shown, and set the minimum and maximum note range to change the scale. 
+                    Both Note On and Note Off events are recorded and displayed as bars. 
+                    Hovering your mouse over a note bar will show its velocity and note value. 
+                    You can pause or resume the Piano Roll display at any time using the Pause button.
+                </div>
+                <strong>CC Analyzer:</strong>
+                <div style="text-align:left; margin:0.5em 0 0 1.2em; color:#bbb; font-size:1em;">
+                    The CC Analyzer lets you select up to 4 different MIDI Control Change (CC) numbers and view their recent values as colored bar graphs. 
+                    Each CC is shown in a separate color, and the most recent values are displayed as bars, making it easy to monitor real-time changes. 
+                    Hovering your mouse over a bar will show the exact CC number and value. 
+                    You can clear the graph at any time, and select which CC numbers to display using the dropdown menu.
+                </div>
+            </div>
+            <p style="margin-top:2em; font-size:0.95em; color:#aaa;">&copy; 2024 - <span id="aboutYear"></span> <a href="https://midilli.tech" target="_blank" style="color:#aaa; text-decoration:underline;">MIDILLI Tech</a>. All rights reserved.<br>MIDILLI MIDI Web Tool Version: <span id="aboutLastUpdated"></span></p>
+            <p style="margin-top:0.5em; font-size:0.95em; color:#aaa;">
+                You can download or fork this project on GitHub: 
+                <a href="https://github.com/MIDILLI-Tech/midi-web-tool" target="_blank" style="color:#aaa; text-decoration:underline;">
+                    https://github.com/MIDILLI-Tech/midi-web-tool
+                </a>
+            </p>
+            <div id="inputs">
+                <button id="aboutOkBtn">OK</button>
+            </div>
+        </div>
+    </div>
+    <!-- Piano Roll Modal -->
+    <div id="pianoRollModal" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.7); z-index:1000; align-items:center; justify-content:center;">
+        <div style="background:#222; color:#fff; padding:1em 1em 1em 1em; border-radius:8px; max-width:95vw; max-height:90vh; box-shadow:0 4px 32px #000; display:flex; flex-direction:column; align-items:center;">
+            <h2 style="margin-top:0;">
+                Piano Roll (Last 
+                <input id="pianoRollSecondsInput" type="number" min="1" max="60" value="10" style="width:3em; font-size:1em; padding:2px 4px; margin:0 2px; text-align:right;" title="Set piano roll duration in seconds">
+                seconds)
+            </h2>
+            <div style="display:flex; align-items:center; gap:1em; margin-bottom:0.7em;">
+                <label for="pianoRollNoteMin" style="font-size:0.95em; color:#aaa;">Note Min:</label>
+                <select id="pianoRollNoteMin" style="font-size:1em; padding:2px 6px;"></select>
+                <label for="pianoRollNoteMax" style="font-size:0.95em; color:#aaa;">Note Max:</label>
+                <select id="pianoRollNoteMax" style="font-size:1em; padding:2px 6px;"></select>
+                <button id="pianoRollPlayPauseBtn" style="margin-left:1em; font-size:1em; padding:2px 10px;">Pause</button>
+                <button id="pianoRollClearBtn" style="margin-left:1em; font-size:1em; padding:2px 10px;">Clear</button>
+            </div>
+            <canvas id="pianoRollCanvas" width="900" height="220" style="background:#111; border-radius:6px; margin-bottom:1em; width:90vw; max-width:900px; height:220px;"></canvas>
+            <div id="pianoRollLegend" style="display:flex; align-items:center; gap:10px; margin-bottom:1em; width:90vw; max-width:900px;">
+                <span style="font-size:0.95em; color:#aaa;">Velocity:</span>
+                <span style="font-size:0.95em; color:#aaa;">0</span>
+                <div style="flex:1; height:18px; background: linear-gradient(to right, rgb(0,120,255) 0%, rgb(0,255,255) 33%, rgb(255,255,0) 67%, rgb(255,60,60) 100%); border-radius:4px;"></div>
+                <span style="font-size:0.95em; color:#aaa;">127</span>
+            </div>
+            <button id="pianoRollCloseBtn" style="margin-top:0.5em;">Close</button>
+        </div>
+    </div>
+    <table>
+        <thead>
+            <tr>
+                <th>Time</th>
+                <th>Type</th>
+                <th>Value</th>
+                <th>Channel</th>
+                <th>Device</th>
+                <th>
+                    Raw Message
+                    <button id="toggleRawFormat" style="margin-left:8px;background:#222; color:#fff; border:none; border-radius:4px; font-size:1em; cursor:pointer;" title="Click to toggle between hex and dec">Hex</button>
+                </th>
+            </tr>
+        </thead>
+        <tbody id="logBody"></tbody>
+    </table>
+
+    <script src="midi.js"></script>
+    <script>
+        LAST_UPDATED = "12.08.2025"; // Update this with the actual last updated date
+        let rawFormat = 'hex';
+        // Show error if MIDI access is denied
+        if (!navigator.requestMIDIAccess) {
+            alert("Web MIDI API is not supported in this browser. Please use Chrome, Edge, or Firefox (with experimental features enabled).");
+        }
+
+        // --- FILTERS STATE ---
+        // Default: all channels and all types enabled
+        let filters = {
+            channels: Array.from({length:16}, (_,i)=>i+1),
+            types: [
+                "Note On", "Note Off", "CC", "Program", "Pitch Bend",
+                "SysEx", "Clock", "Start", "Stop", "Continue", "Active Sense", "Reset"
+            ]
+        };
+
+        // Render channel checkboxes
+        function renderChannelCheckboxes() {
+            const container = document.getElementById('channelCheckboxes');
+            container.innerHTML = "";
+            for (let i = 1; i <= 16; i++) {
+                const label = document.createElement('label');
+                label.style.marginRight = "0.7em";
+                const cb = document.createElement('input');
+                cb.type = "checkbox";
+                cb.value = i;
+                cb.name = "channel";
+                cb.checked = true;
+                label.appendChild(cb);
+                label.appendChild(document.createTextNode(" " + i));
+                container.appendChild(label);
+            }
+        }
+
+        // Channel select all/none/invert logic
+        document.addEventListener('DOMContentLoaded', function() {
+            function setChannelCheckboxes(val) {
+                document.querySelectorAll('#channelCheckboxes input[type="checkbox"]').forEach(cb => cb.checked = val);
+            }
+            function invertChannelCheckboxes() {
+                document.querySelectorAll('#channelCheckboxes input[type="checkbox"]').forEach(cb => cb.checked = !cb.checked);
+            }
+            function setTypeCheckboxes(val) {
+                document.querySelectorAll('#typeCheckboxes input[type="checkbox"]').forEach(cb => cb.checked = val);
+            }
+            function invertTypeCheckboxes() {
+                document.querySelectorAll('#typeCheckboxes input[type="checkbox"]').forEach(cb => cb.checked = !cb.checked);
+            }
+            document.getElementById('channelsSelectAllBtn').onclick = () => setChannelCheckboxes(true);
+            document.getElementById('channelsSelectNoneBtn').onclick = () => setChannelCheckboxes(false);
+            document.getElementById('channelsInvertBtn').onclick = () => invertChannelCheckboxes();
+            document.getElementById('typesSelectAllBtn').onclick = () => setTypeCheckboxes(true);
+            document.getElementById('typesSelectNoneBtn').onclick = () => setTypeCheckboxes(false);
+            document.getElementById('typesInvertBtn').onclick = () => invertTypeCheckboxes();
+        });
+
+        // Open Filters modal
+        document.getElementById('filtersBtn').onclick = function() {
+            renderChannelCheckboxes();
+            // Set checked state from filters
+            document.querySelectorAll('#channelCheckboxes input[type="checkbox"]').forEach(cb => {
+                cb.checked = filters.channels.includes(Number(cb.value));
+            });
+            document.querySelectorAll('#filtersForm input[name="type"]').forEach(cb => {
+                cb.checked = filters.types.includes(cb.value);
+            });
+            document.getElementById('filtersModal').style.display = 'flex';
+        };
+        // Close Filters modal and save
+        document.getElementById('filtersOkBtn').onclick = function() {
+            // Save selected channels
+            filters.channels = Array.from(document.querySelectorAll('#channelCheckboxes input[type="checkbox"]:checked')).map(cb=>Number(cb.value));
+            // Save selected types
+            filters.types = Array.from(document.querySelectorAll('#filtersForm input[name="type"]:checked')).map(cb=>cb.value);
+            document.getElementById('filtersModal').style.display = 'none';
+            // Re-filter log
+            filterLogTable();
+        };
+        // Optional: close modal when clicking outside
+        document.getElementById('filtersModal').onclick = function(e) {
+            if (e.target === this) this.style.display = 'none';
+        };
+
+        // Filter log table rows
+        function filterLogTable() {
+            const rows = document.querySelectorAll('#logBody tr');
+            rows.forEach(row => {
+                const tds = row.children;
+                const type = tds[1]?.textContent.replace(/\s*\(.*\)/,'');
+                const channel = tds[3]?.textContent;
+                let show = true;
+                if (type && !filters.types.some(t=>type.startsWith(t))) show = false;
+                if (channel && channel !== "n/a" && !filters.channels.includes(Number(channel))) show = false;
+                row.style.display = show ? "" : "none";
+            });
+        }
+
+        // MIDI message type parser
+        function parseMidiMessage(data) {
+            const status = data[0];
+            if (status >= 0x80 && status <= 0xEF) {
+                const typeNibble = status & 0xF0;
+                const channel = (status & 0x0F) + 1;
+                switch (typeNibble) {
+                    case 0x80: // Note Off
+                    case 0x90: { // Note On
+                        const noteNumber = data[1];
+                        const noteNames = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+                        const octave = Math.floor(noteNumber / 12) - 1;
+                        const noteName = noteNames[noteNumber % 12] + octave;
+                        return { 
+                            type: (typeNibble === 0x90 ? "Note On" : "Note Off") + ` (${noteName})`, 
+                            channel, 
+                            value: data[2] // velocity
+                        };
+                    }
+                    case 0xA0: // Poly AT
+                        return { type: "Poly AT", channel, value: data[2] };
+                    case 0xB0: // CC
+                        return { type: `CC (#${data[1]})`, channel, value: data[2] };
+                    case 0xC0: // Program
+                        return { type: "Program", channel, value: data[1] };
+                    case 0xD0: // Channel AT
+                        return { type: "Channel AT", channel, value: data[1] };
+                    case 0xE0: // Pitch Bend
+                        return { type: "Pitch Bend", channel, value: ((data[2] << 7) | data[1]) - 8192 };
+                }
+            } else if (status === 0xF0) {
+                return { type: "SysEx", channel: "n/a", value: "" };
+            } else if (status === 0xF8) {
+                return { type: "Clock", channel: "n/a", value: "" };
+            } else if (status === 0xFA) {
+                return { type: "Start", channel: "n/a", value: "" };
+            } else if (status === 0xFB) {
+                return { type: "Continue", channel: "n/a", value: "" };
+            } else if (status === 0xFC) {
+                return { type: "Stop", channel: "n/a", value: "" };
+            } else if (status === 0xFE) {
+                return { type: "Active Sense", channel: "n/a", value: "" };
+            } else if (status === 0xFF) {
+                return { type: "Reset", channel: "n/a", value: "" };
+            }
+            return { type: "Unknown", channel: "n/a", value: "" };
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            setupCCAnalyzerModal();
+        });
+
+        // Fill input select
+        async function populateInputs() {
+            await MIDIEngine.init();
+            const inputNames = JSON.parse(MIDIEngine.get_input_port_names());
+            const select = document.getElementById('inputSelect');
+            select.innerHTML = "";
+            inputNames.forEach((name, idx) => {
+                const opt = document.createElement('option');
+                opt.value = idx;
+                opt.textContent = name;
+                select.appendChild(opt);
+            });
+            // Populate output select
+            const outputNames = JSON.parse(MIDIEngine.get_output_port_names());
+            const outputSelect = document.getElementById('outputSelect');
+            outputSelect.innerHTML = "";
+            const sendBtn = document.getElementById('sendBtn');
+            if (outputNames.length === 0) {
+                const opt = document.createElement('option');
+                opt.value = "";
+                opt.textContent = "None";
+                opt.disabled = true;
+                opt.selected = true;
+                outputSelect.appendChild(opt);
+                outputSelect.disabled = true;
+                sendBtn.disabled = true;
+            } else {
+                outputNames.forEach((name, idx) => {
+                    const opt = document.createElement('option');
+                    opt.value = idx;
+                    opt.textContent = name;
+                    outputSelect.appendChild(opt);
+                });
+                outputSelect.disabled = false;
+                sendBtn.disabled = false;
+            }
+            // Show notification if no devices found
+            if (inputNames.length === 0) {
+                // Remove any previous notification
+                let notif = document.getElementById('noMidiNotif');
+                if (!notif) {
+                    notif = document.createElement('div');
+                    notif.id = 'noMidiNotif';
+                    notif.style.background = '#ffeb3b';
+                    notif.style.color = '#222';
+                    notif.style.padding = '1em';
+                    notif.style.margin = '1em 0';
+                    notif.style.borderRadius = '6px';
+                    notif.style.fontWeight = 'bold';
+                    notif.style.textAlign = 'center';
+                    notif.style.maxWidth = '700px';
+                    notif.style.marginLeft = 'auto';
+                    notif.style.marginRight = 'auto';
+                    notif.innerHTML = `
+                        You will need MIDI devices to use this tool.<br>
+                        You do not see any because permission was not granted, the device is in use by another application, or not connected.<br>
+                        Please try again after resolving the issue.<br>
+                        If permission was not granted, click the icon next to the address bar and allow MIDI device access.<br>
+                    `;
+                    select.parentNode.parentNode.insertBefore(notif, select.parentNode.nextSibling);
+                }
+                // document.getElementById('connectBtn').disabled = true;
+            } else {
+                // Remove notification if devices are found
+                const notif = document.getElementById('noMidiNotif');
+                if (notif) notif.remove();
+                // Enable/disable connectBtn based on selection
+                // const connectBtn = document.getElementById('connectBtn');
+                // connectBtn.disabled = select.selectedOptions.length === 0;
+                // Add event listener to enable/disable connectBtn on selection change
+                select.onchange = function() {
+                    // connectBtn.disabled = select.selectedOptions.length === 0;
+                };
+            }
+        }
+        // Log MIDI message
+        function logMidiMessage({timestamp, type, value, channel, device, raw}) {
+            const tbody = document.getElementById('logBody');
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${timestamp}</td>
+                <td>${type}</td>
+                <td>${value !== undefined ? value : ""}</td>
+                <td>${channel}</td>
+                <td>${device}</td>
+                <td>${raw}</td>
+            `;
+            tbody.appendChild(tr);
+
+            // Limit number of messages shown
+            const maxInput = document.getElementById('maxMessagesInput');
+            let max = 100;
+            if (maxInput && !isNaN(parseInt(maxInput.value))) {
+                max = parseInt(maxInput.value);
+            }
+            while (tbody.children.length > max) {
+                tbody.removeChild(tbody.firstChild);
+            }
+
+            // Scroll to bottom if autoScroll is enabled
+            if (document.getElementById('autoScroll').checked) {
+                tr.scrollIntoView({ behavior: "smooth" });
+            }
+            // Apply current filters to the new row
+            filterLogTable();
+        }
+        // MIDI callback
+        window._midi_callback = function(json) {
+            const msg = JSON.parse(json);
+            const data = msg.data || msg; // support both formats
+            const index = msg.index !== undefined ? msg.index : null;
+            const now = new Date();
+            const timestamp = now.toLocaleTimeString('en-GB', { hour12: false }) + '.' + now.getMilliseconds().toString().padStart(3, '0');
+            const { type, channel, value } = parseMidiMessage(data);
+            // Get device name using index if available
+            let device = "n/a";
+            const select = document.getElementById('inputSelect');
+            if (index !== null && select.options[index]) {
+                device = select.options[index].textContent;
+            } else {
+                device = select.selectedOptions[0]?.textContent || "n/a";
+            }
+            // Format raw message as hex and dec
+            const hex = Array.from(data).map(b => b.toString(16).padStart(2, '0').toUpperCase()).join(' ');
+            const dec = Array.from(data).join(' ');
+
+            // Piano roll: listen for Note On/Off
+            if (data[0] >= 0x80 && data[0] <= 0x9F) {
+                const noteNumber = data[1];
+                if ((data[0] & 0xF0) === 0x90 && data[2] > 0) {
+                    // Note On with velocity > 0
+                    addPianoRollEvent(noteNumber, data[2], true);
+                } else {
+                    // Note Off (0x80) or Note On with velocity 0
+                    addPianoRollEvent(noteNumber, data[2], false);
+                }
+            }
+
+            // CC Analyzer: store CC values for analyzer
+            if ((data[0] & 0xF0) === 0xB0 && typeof data[1] === "number" && typeof data[2] === "number") {
+                const ccNum = data[1];
+                if (!ccAnalyzerData[ccNum]) ccAnalyzerData[ccNum] = [];
+                ccAnalyzerData[ccNum].push(data[2]);
+                // Limit to last 100 values for performance
+                if (ccAnalyzerData[ccNum].length > 100) ccAnalyzerData[ccNum] = ccAnalyzerData[ccNum].slice(-100);
+                // If analyzer is open and showing any selected CC, redraw
+                if (document.getElementById('ccAnalyzerModal').style.display !== 'none') {
+                    const ccSelect = document.getElementById('ccAnalyzerCCSelect');
+                    const selected = Array.from(ccSelect.selectedOptions).map(opt => parseInt(opt.value));
+                    if (selected.includes(ccNum)) {
+                        drawCCAnalyzer();
+                    }
+                }
+            }
+
+            // Remove any ( ... ) from type for filtering
+            const typeForFilter = type.replace(/\s*\(.*\)/, '');
+            let show = true;
+            if (typeForFilter && !filters.types.some(t => typeForFilter.startsWith(t))) show = false;
+            if (channel && channel !== "n/a" && !filters.channels.includes(Number(channel))) show = false;
+            if (!show) return; // Do not log if filtered out
+
+            logMidiMessage({
+                timestamp,
+                type,
+                value,
+                channel,
+                device,
+                raw: `<span class="raw-msg" data-hex="${hex}" data-dec="${dec}">${rawFormat === 'hex' ? hex : dec}</span>`,
+                data
+            });
+
+        };
+
+        // Connect button
+        document.getElementById('connectBtn').onclick = function() {
+            const select = document.getElementById('inputSelect');
+            const selectedIndices = Array.from(select.selectedOptions).map(opt => Number(opt.value));
+            if (selectedIndices.length === 0) {
+                showNotification("Please select at least one MIDI input device.", 2000);
+                return;
+            }
+            MIDIEngine.close_input_port();
+            selectedIndices.forEach(idx => MIDIEngine.open_input_port(idx));
+            document.getElementById('connectBtn').style.display = 'none';
+            document.getElementById('disconnectBtn').style.display = '';
+            document.getElementById('inputSelect').disabled = true;
+            showNotification("Listening MIDI devices...", 0);
+        };
+
+        document.getElementById('sendBtn').onclick = function () {
+            const outputSelect = document.getElementById('outputSelect');
+            const selectedIndex = outputSelect.selectedIndex;
+            if (selectedIndex < 0) {
+                showNotification("Please select a MIDI output device.", 2000);
+                return;
+            }
+
+            MIDIEngine.open_output_port(selectedIndex);
+
+            const message = prompt("Enter MIDI message to send:\n- Decimal: e.g., '144 60 127'\n- Hex: prefix each byte with 0x, e.g., '0x90 0x3C 0x7F'");
+            if (!message) return; // Cancelled
+
+            const data = message
+                .trim()
+                .split(/\s+/)
+                .map(val => {
+                    if (/^0x[0-9a-fA-F]+$/.test(val)) {
+                        return parseInt(val, 16);
+                    } else if (/^[0-9]+$/.test(val)) {
+                        return parseInt(val, 10);
+                    } else {
+                        return NaN;
+                    }
+                })
+                .filter(num => !isNaN(num) && num >= 0 && num <= 255);
+
+            if (data.length === 0) {
+                showNotification("Invalid MIDI message format. Use decimal (e.g., '144 60 127') or hex with 0x prefix (e.g., '0x90 0x3C 0x7F').", 5000);
+                return;
+            }
+
+            const midiMessage = new Uint8Array(data);
+            MIDIEngine.send_message(midiMessage);
+            showNotification(`Sent: ${message}`, 2000);
+
+            // Parse type, value, channel from the message
+            const { type, value, channel } = parseMidiMessage(data);
+            // Get device name
+            const device = outputSelect.options[selectedIndex]?.textContent || "n/a";
+            // Format raw message as hex and dec
+            const hex = Array.from(data).map(b => b.toString(16).padStart(2, '0').toUpperCase()).join(' ');
+            const dec = Array.from(data).join(' ');
+
+            logMidiMessage({
+                timestamp: new Date().toLocaleTimeString('en-GB', { hour12: false }) + '.' + new Date().getMilliseconds().toString().padStart(3, '0'),
+                type: type + " (Sent)",
+                value,
+                channel,
+                device,
+                raw: `<span class="raw-msg" data-hex="${hex}" data-dec="${dec}">${rawFormat === 'hex' ? hex : dec}</span>`
+            });
+        };
+
+        // Disconnect button
+        document.getElementById('disconnectBtn').onclick = function() {
+            MIDIEngine.close_input_port();
+            document.getElementById('disconnectBtn').style.display = 'none';
+            document.getElementById('connectBtn').style.display = '';
+            document.getElementById('inputSelect').disabled = false;
+            showNotification("Stopped listening.", 1500);
+        };
+
+        // Refresh button
+        document.getElementById('refreshBtn').onclick = function() {
+            MIDIEngine.refresh_devices();
+            populateInputs();
+            showNotification('Refreshed devices!');
+        };
+        let ccAnalyzerData = {}; // {ccNumber: [values]}
+        let ccAnalyzerSelectedCCs = [1];
+        const CC_COLORS = ["#00eaff", "#ffb300", "#e91e63", "#4caf50"];
+        function setupCCAnalyzerModal() {
+            // Populate CC select
+            const ccSelect = document.getElementById('ccAnalyzerCCSelect');
+            if (ccSelect) {
+                ccSelect.innerHTML = "";
+                for (let i = 0; i <= 127; i++) {
+                    const opt = document.createElement('option');
+                    opt.value = i;
+                    opt.textContent = "CC " + i;
+                    ccSelect.appendChild(opt);
+                }
+                // Default: select CC 1
+                ccSelect.selectedIndex = 1;
+                ccAnalyzerSelectedCCs = [1];
+                ccSelect.onchange = function() {
+                    let selectedOptions = Array.from(ccSelect.selectedOptions);
+                    if (selectedOptions.length > 4) {
+                        // Deselect oldest selections to keep only the last 4
+                        for (let i = 0; i < selectedOptions.length - 4; i++) {
+                            selectedOptions[i].selected = false;
+                        }
+                        alert("You can select up to 4 CC numbers. The oldest selections were removed.");
+                        // Update selectedOptions after deselection
+                        selectedOptions = Array.from(ccSelect.selectedOptions);
+                    }
+                    let selected = selectedOptions.map(opt => parseInt(opt.value));
+                    ccAnalyzerSelectedCCs = selected.length ? selected : [1];
+                    drawCCAnalyzer();
+                };
+            }
+            document.getElementById('ccAnalyzerBtn').onclick = function() {
+                document.getElementById('ccAnalyzerModal').style.display = 'flex';
+                drawCCAnalyzer();
+            };
+            document.getElementById('ccAnalyzerCloseBtn').onclick = function() {
+                document.getElementById('ccAnalyzerModal').style.display = 'none';
+            };
+            document.getElementById('ccAnalyzerModal').onclick = function(e) {
+                if (e.target === this) this.style.display = 'none';
+            };
+            document.getElementById('ccAnalyzerClearBtn').onclick = function() {
+                ccAnalyzerSelectedCCs.forEach(cc => ccAnalyzerData[cc] = []);
+                drawCCAnalyzer();
+            };
+        }
+        function drawCCAnalyzer() {
+            const canvas = document.getElementById('ccAnalyzerCanvas');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Store bar rects for tooltip
+            window._ccAnalyzerBarRects = [];
+
+            const N = 40;
+            const barWidth = Math.max(6, Math.floor(canvas.width / N) - 2);
+            const maxHeight = canvas.height - 30;
+            ctx.strokeStyle = "#444";
+            ctx.beginPath();
+            ctx.moveTo(0, maxHeight);
+            ctx.lineTo(canvas.width, maxHeight);
+            ctx.stroke();
+
+            // Draw bars for each selected CC, stacked
+            ccAnalyzerSelectedCCs.forEach((cc, idx) => {
+                const values = ccAnalyzerData[cc] || [];
+                for (let i = 0; i < N; i++) {
+                    const v = values[values.length - N + i];
+                    if (v === undefined) continue;
+                    const h = Math.round((v / 127) * (maxHeight / ccAnalyzerSelectedCCs.length));
+                    // Stack bars for each CC
+                    const yOffset = idx * (maxHeight / ccAnalyzerSelectedCCs.length);
+                    ctx.fillStyle = CC_COLORS[idx % CC_COLORS.length];
+                    const x = i * (barWidth + 2) + 20;
+                    const y = maxHeight - h - yOffset;
+                    ctx.fillRect(x, y, barWidth, h);
+
+                    // Store rect for tooltip
+                    window._ccAnalyzerBarRects.push({
+                        x: x,
+                        y: y,
+                        width: barWidth,
+                        height: h,
+                        value: v,
+                        cc: cc
+                    });
+                }
+            });
+
+            // Draw value text for each CC with background for readability
+            ctx.font = "bold 1.1em Arial";
+            ccAnalyzerSelectedCCs.forEach((cc, idx) => {
+                const values = ccAnalyzerData[cc] || [];
+                if (values.length > 0) {
+                    const text = "CC " + cc + ": " + values[values.length - 1];
+                    const x = 20 + idx * 120;
+                    const y = 20;
+                    // Measure text width and height
+                    const metrics = ctx.measureText(text);
+                    const textWidth = metrics.width;
+                    const textHeight = 18;
+                    // Draw semi-transparent background
+                    ctx.save();
+                    ctx.globalAlpha = 0.6;
+                    ctx.fillStyle = "#222";
+                    ctx.fillRect(x - 4, y - textHeight + 4, textWidth + 8, textHeight);
+                    ctx.restore();
+                    // Draw text
+                    ctx.fillStyle = CC_COLORS[idx % CC_COLORS.length];
+                    ctx.fillText(text, x, y);
+                }
+            });
+
+            // Draw Y axis labels for each CC section
+            ctx.fillStyle = "#aaa";
+            ctx.font = "0.9em Arial";
+            ccAnalyzerSelectedCCs.forEach((cc, idx) => {
+                const sectionHeight = maxHeight / ccAnalyzerSelectedCCs.length;
+                const yTop = idx * sectionHeight + 12;
+                const yBottom = (idx + 1) * sectionHeight;
+                ctx.fillText("127", 2, yTop);
+                ctx.fillText("0", 6, yBottom);
+            });
+        }
+
+        // Tooltip for CC Analyzer bars
+        (function setupCCAnalyzerTooltip() {
+            let tooltip = document.getElementById('ccAnalyzerTooltip');
+            if (!tooltip) {
+                tooltip = document.createElement('div');
+                tooltip.id = 'ccAnalyzerTooltip';
+                tooltip.style.position = 'fixed';
+                tooltip.style.pointerEvents = 'none';
+                tooltip.style.background = 'rgba(0,0,0,0.85)';
+                tooltip.style.color = '#fff';
+                tooltip.style.padding = '4px 10px';
+                tooltip.style.borderRadius = '5px';
+                tooltip.style.fontSize = '1em';
+                tooltip.style.zIndex = 9999;
+                tooltip.style.display = 'none';
+                document.body.appendChild(tooltip);
+            }
+            const canvas = document.getElementById('ccAnalyzerCanvas');
+            if (!canvas) return;
+            let mouseX = null, mouseY = null, mouseInside = false;
+
+            canvas.addEventListener('mousemove', function(e) {
+                const rect = canvas.getBoundingClientRect();
+                mouseX = e.clientX - rect.left;
+                mouseY = e.clientY - rect.top;
+                mouseInside = true;
+                updateCCAnalyzerTooltip();
+            });
+            canvas.addEventListener('mouseleave', function() {
+                mouseInside = false;
+                tooltip.style.display = 'none';
+            });
+
+            function updateCCAnalyzerTooltip() {
+                if (!mouseInside || mouseX === null || mouseY === null) {
+                    tooltip.style.display = 'none';
+                    return;
+                }
+                if (!window._ccAnalyzerBarRects) return;
+                let found = null;
+                for (const bar of window._ccAnalyzerBarRects) {
+                    if (
+                        mouseX >= bar.x &&
+                        mouseX <= bar.x + bar.width &&
+                        mouseY >= bar.y &&
+                        mouseY <= bar.y + bar.height
+                    ) {
+                        found = bar;
+                    }
+                }
+                if (found) {
+                    tooltip.textContent = `CC ${found.cc}: ${found.value}`;
+                    tooltip.style.left = (mouseX + canvas.getBoundingClientRect().left + 12) + 'px';
+                    tooltip.style.top = (mouseY + canvas.getBoundingClientRect().top + 8) + 'px';
+                    tooltip.style.display = '';
+                } else {
+                    tooltip.style.display = 'none';
+                }
+            }
+
+            // Redraw tooltip after each draw
+            let origDrawCCAnalyzer = drawCCAnalyzer;
+            drawCCAnalyzer = function() {
+                origDrawCCAnalyzer();
+                updateCCAnalyzerTooltip();
+            };
+        })();
+
+        // --- Piano Roll State ---
+        // Store note events as {note, velocity, on, timestamp}
+        let pianoRollEvents = [];
+        const PIANO_ROLL_WINDOW = 10 * 1000; // 10 seconds in ms
+
+        // Draw piano roll
+        function drawPianoRoll() {
+            const canvas = document.getElementById('pianoRollCanvas');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Her karede güncel zaman al
+            const now = Date.now();
+
+            // Get current window from input
+            const secondsInput = document.getElementById('pianoRollSecondsInput');
+            let timeWindow = PIANO_ROLL_WINDOW;
+            let secondsValue = 10;
+            if (secondsInput && !isNaN(parseInt(secondsInput.value))) {
+                secondsValue = parseInt(secondsInput.value);
+                timeWindow = secondsValue * 1000;
+            }
+
+            const width = canvas.width;
+            const height = canvas.height;
+
+            // Get note range from dropdowns
+            let noteMin = 21;
+            let noteMax = 108;
+            const noteMinSel = document.getElementById('pianoRollNoteMin');
+            const noteMaxSel = document.getElementById('pianoRollNoteMax');
+            if (noteMinSel && noteMaxSel) {
+                noteMin = parseInt(noteMinSel.value);
+                noteMax = parseInt(noteMaxSel.value);
+                if (isNaN(noteMin) || noteMin < 0) noteMin = 0;
+                if (isNaN(noteMax) || noteMax > 108) noteMax = 108;
+                if (noteMin > noteMax) noteMin = noteMax;
+            }
+            const noteCount = noteMax - noteMin + 1;
+            const rowHeight = height / noteCount;
+
+            // Draw note rows
+            for (let i = 0; i < noteCount; i++) {
+                ctx.fillStyle = (i % 2 === 0) ? "#181818" : "#222";
+                ctx.fillRect(0, i * rowHeight, width, rowHeight);
+            }
+
+            // Draw note labels (C notes)
+            ctx.font = "10px Arial";
+            ctx.fillStyle = "#888";
+            for (let n = noteMin; n <= noteMax; n++) {
+                if ((n % 12) === 0) {
+                    const y = height - ((n - noteMin + 1) * rowHeight) + rowHeight / 2 + 4;
+                    ctx.fillText("C" + (Math.floor(n / 12) - 1), 2, y);
+                }
+            }
+
+            // Velocity renk hesaplama
+            function velocityToColor(velocity) {
+                const stops = [
+                    { v: 0, color: [0, 120, 255] },
+                    { v: 42, color: [0, 255, 255] },
+                    { v: 85, color: [255, 255, 0] },
+                    { v: 127, color: [255, 60, 60] }
+                ];
+                let c1, c2;
+                for (let i = 0; i < stops.length - 1; i++) {
+                    if (velocity >= stops[i].v && velocity <= stops[i + 1].v) {
+                        c1 = stops[i];
+                        c2 = stops[i + 1];
+                        break;
+                    }
+                }
+                if (!c1 || !c2) return "rgb(255,255,255)";
+                const t = (velocity - c1.v) / (c2.v - c1.v);
+                const r = Math.round(c1.color[0] + (c2.color[0] - c1.color[0]) * t);
+                const g = Math.round(c1.color[1] + (c2.color[1] - c1.color[1]) * t);
+                const b = Math.round(c1.color[2] + (c2.color[2] - c1.color[2]) * t);
+                return `rgb(${r},${g},${b})`;
+            }
+
+            // Store bar positions for tooltip
+            window._pianoRollBarRects = [];
+
+            // Çubukları çiz
+            pianoRollEvents.forEach(ev => {
+                if (ev.note < noteMin || ev.note > noteMax) return;
+
+                const startTime = ev.timestamp;
+                const endTime = ev.on ? now : (ev.offTimestamp || now);
+
+                if (endTime < now - timeWindow) return;
+                if (startTime > now) return;
+
+                const barStart = Math.max(startTime, now - timeWindow);
+                const barEnd = ev.on ? now : Math.min(endTime, now);
+
+                const barStartX = width - ((now - barStart) / timeWindow) * width;
+                const barEndX = width - ((now - barEnd) / timeWindow) * width;
+                const y = (noteMax - ev.note) * rowHeight;
+
+                // Ensure barStartX is less than barEndX for left-to-right drawing
+                const leftX = Math.min(barStartX, barEndX);
+                const barWidth = Math.abs(barEndX - barStartX);
+
+                // Set color based on velocity
+                ctx.fillStyle = velocityToColor(ev.velocity || 0);
+
+                if (barWidth > 0) {
+                    ctx.fillRect(leftX, y, barWidth, rowHeight - 1);
+
+                    // Store rect for tooltip
+                    window._pianoRollBarRects.push({
+                        x: leftX,
+                        y: y - 2,
+                        width: barWidth,
+                        height: rowHeight + 4,
+                        velocity: ev.velocity,
+                        note: ev.note
+                    });
+                }
+            });
+
+            // Draw horizontal time axis at the bottom
+            ctx.save();
+            ctx.strokeStyle = "#aaa";
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(0, height - 1);
+            ctx.lineTo(width, height - 1);
+            ctx.stroke();
+
+            // Draw time labels just below the canvas, not inside
+            // So, do NOT draw them on the canvas, but instead update the DOM below the canvas
+            ctx.restore();
+
+            // Update or create time labels below the canvas
+            let timeLabels = document.getElementById('pianoRollTimeLabels');
+            if (!timeLabels) {
+                timeLabels = document.createElement('div');
+                timeLabels.id = 'pianoRollTimeLabels';
+                timeLabels.style.display = 'flex';
+                timeLabels.style.justifyContent = 'space-between';
+                timeLabels.style.width = canvas.style.width || (canvas.width + 'px');
+                timeLabels.style.maxWidth = canvas.style.maxWidth || '900px';
+                timeLabels.style.margin = '0 auto 4px auto';
+                timeLabels.style.font = 'bold 12px Arial';
+                timeLabels.style.color = '#aaa';
+                // Insert after canvas
+                canvas.parentNode.insertBefore(timeLabels, canvas.nextSibling);
+            }
+            timeLabels.innerHTML = `<span>${secondsValue} sec</span><span>${Math.round(secondsValue / 2)} sec</span><span>0 sec</span>`;
+        }
+
+        // Tooltip for velocity on hover
+        (function setupPianoRollTooltip() {
+            let tooltip = document.getElementById('pianoRollTooltip');
+            if (!tooltip) {
+                tooltip = document.createElement('div');
+                tooltip.id = 'pianoRollTooltip';
+                tooltip.style.position = 'fixed';
+                tooltip.style.pointerEvents = 'none';
+                tooltip.style.background = 'rgba(0,0,0,0.85)';
+                tooltip.style.color = '#fff';
+                tooltip.style.padding = '4px 10px';
+                tooltip.style.borderRadius = '5px';
+                tooltip.style.fontSize = '1em';
+                tooltip.style.zIndex = 9999;
+                tooltip.style.display = 'none';
+                document.body.appendChild(tooltip);
+            }
+            const canvas = document.getElementById('pianoRollCanvas');
+            if (!canvas) return;
+            // Track mouse position for tooltip
+            let mouseX = null, mouseY = null, mouseInside = false;
+
+            canvas.addEventListener('mousemove', function(e) {
+                const rect = canvas.getBoundingClientRect();
+                mouseX = e.clientX - rect.left;
+                mouseY = e.clientY - rect.top;
+                mouseInside = true;
+            });
+            canvas.addEventListener('mouseleave', function() {
+                mouseInside = false;
+                tooltip.style.display = 'none';
+            });
+
+            // Update tooltip on every animation frame or mouse move
+            function updatePianoRollTooltip() {
+                if (!mouseInside || mouseX === null || mouseY === null) {
+                    tooltip.style.display = 'none';
+                    return;
+                }
+                if (!window._pianoRollBarRects) return;
+                let found = null;
+                for (const bar of window._pianoRollBarRects) {
+                    if (
+                        mouseX >= bar.x &&
+                        mouseX <= bar.x + bar.width &&
+                        mouseY >= bar.y &&
+                        mouseY <= bar.y + bar.height
+                    ) {
+                        found = bar;
+                    }
+                }
+                if (found) {
+                    // Convert MIDI note number to note name
+                    const noteNames = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+                    const noteNum = found.note;
+                    const octave = Math.floor(noteNum / 12) - 1;
+                    const noteName = noteNames[noteNum % 12] + octave;
+                    tooltip.textContent = `Velocity: ${found.velocity}  Note: ${found.note} (${noteName})`;
+                    // Use pageX/pageY for correct positioning
+                    tooltip.style.left = (mouseX + canvas.getBoundingClientRect().left + 12) + 'px';
+                    tooltip.style.top = (mouseY + canvas.getBoundingClientRect().top + 8) + 'px';
+                    tooltip.style.display = '';
+                } else {
+                    tooltip.style.display = 'none';
+                }
+            }
+
+            // Always update tooltip on mouse move, even if paused
+            canvas.addEventListener('mousemove', function() {
+                updatePianoRollTooltip();
+            });
+
+            // Hook into piano roll animation
+            let origDrawPianoRoll = drawPianoRoll;
+            drawPianoRoll = function() {
+                origDrawPianoRoll();
+                updatePianoRollTooltip();
+            };
+        })();
+
+        // Add note event to piano roll
+        function addPianoRollEvent(note, velocity, on) {
+            const now = Date.now();
+
+            if (on) {
+                // Same note, skip adding
+                // const existing = pianoRollEvents.find(ev => ev.note === note && ev.on);
+                if (!false) {
+                    pianoRollEvents.push({
+                        note,
+                        velocity,
+                        on: true,
+                        timestamp: now
+                    });
+                } else {
+                    existing.velocity = velocity; // keep velocity updated
+                }
+            } else {
+                // Note Off: close event
+                for (let i = pianoRollEvents.length - 1; i >= 0; i--) {
+                    if (pianoRollEvents[i].note === note && pianoRollEvents[i].on) {
+                        pianoRollEvents[i].on = false;
+                        pianoRollEvents[i].offTimestamp = now;
+                        //break;
+                    }
+                }
+            }
+
+            // delete old events
+            pianoRollEvents = pianoRollEvents.filter(ev =>
+                ev.on || now - (ev.offTimestamp || ev.timestamp) <= PIANO_ROLL_WINDOW
+            );
+        }
+
+        function setupPianoRollModal() {
+            let isPianoRollPlaying = true;
+            let pianoRollAnimInterval = null;
+
+            function startPianoRollAnim() {
+                if (!pianoRollAnimInterval) {
+                    pianoRollAnimInterval = setInterval(drawPianoRoll, 60);
+                }
+            }
+            function stopPianoRollAnim() {
+                if (pianoRollAnimInterval) {
+                    clearInterval(pianoRollAnimInterval);
+                    pianoRollAnimInterval = null;
+                }
+            }
+
+            document.getElementById('pianoRollBtn').onclick = function() {
+                document.getElementById('pianoRollModal').style.display = 'flex';
+                drawPianoRoll();
+                isPianoRollPlaying = true;
+                document.getElementById('pianoRollPlayPauseBtn').textContent = 'Pause';
+                startPianoRollAnim();
+            };
+            document.getElementById('pianoRollCloseBtn').onclick = function() {
+                document.getElementById('pianoRollModal').style.display = 'none';
+                stopPianoRollAnim();
+            };
+            document.getElementById('pianoRollModal').onclick = function(e) {
+                if (e.target === this) {
+                    this.style.display = 'none';
+                    stopPianoRollAnim();
+                }
+            };
+            // Play/Pause button logic
+            document.getElementById('pianoRollPlayPauseBtn').onclick = function() {
+                isPianoRollPlaying = !isPianoRollPlaying;
+                if (isPianoRollPlaying) {
+                    this.textContent = 'Pause';
+                    startPianoRollAnim();
+                } else {
+                    this.textContent = 'Play';
+                    stopPianoRollAnim();
+                }
+            };
+
+            // Clear button logic for Piano Roll
+            document.getElementById('pianoRollClearBtn').onclick = function() {
+                pianoRollEvents = [];
+                drawPianoRoll();
+            };
+
+            // Populate note dropdowns
+            const noteNames = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+            const noteMinSel = document.getElementById('pianoRollNoteMin');
+            const noteMaxSel = document.getElementById('pianoRollNoteMax');
+            if (noteMinSel && noteMaxSel) {
+                noteMinSel.innerHTML = "";
+                noteMaxSel.innerHTML = "";
+                for (let n = 0; n <= 108; n++) {
+                    const octave = Math.floor(n / 12) - 1;
+                    const name = noteNames[n % 12] + octave;
+                    const optMin = document.createElement('option');
+                    optMin.value = n;
+                    optMin.textContent = name + " (" + n + ")";
+                    noteMinSel.appendChild(optMin);
+                    const optMax = document.createElement('option');
+                    optMax.value = n;
+                    optMax.textContent = name + " (" + n + ")";
+                    noteMaxSel.appendChild(optMax);
+                }
+                // Defaults: C0 (12) to C8 (108)
+                noteMinSel.value = "12";
+                noteMaxSel.value = "108";
+                // Ensure min cannot be above max and vice versa
+                noteMinSel.onchange = function() {
+                    if (parseInt(noteMinSel.value) > parseInt(noteMaxSel.value)) {
+                        noteMaxSel.value = noteMinSel.value;
+                    }
+                    drawPianoRoll();
+                };
+                noteMaxSel.onchange = function() {
+                    if (parseInt(noteMaxSel.value) < parseInt(noteMinSel.value)) {
+                        noteMinSel.value = noteMaxSel.value;
+                    }
+                    drawPianoRoll();
+                };
+            }
+        }
+
+        // Call setupPianoRollModal to enable Piano Roll functionality
+        setupPianoRollModal();
+
+        // Show customizable notification
+        function showNotification(text, duration = 1500) {
+            let notif = document.getElementById('refreshNotif');
+            if (!notif) {
+                notif = document.createElement('div');
+                notif.id = 'refreshNotif';
+                notif.style.background = '#4caf50';
+                notif.style.color = '#fff';
+                notif.style.padding = '0.7em 1.2em';
+                notif.style.marginTop = '0.7em';
+                notif.style.marginBottom = '1.5em';
+                notif.style.borderRadius = '6px';
+                notif.style.fontWeight = 'bold';
+                notif.style.textAlign = 'center';
+                notif.style.maxWidth = '450px';
+                notif.style.margin = '0 auto';
+                // Insert notification just above the table
+                const table = document.querySelector('table');
+                if (table && table.parentNode) {
+                    table.parentNode.insertBefore(notif, table);
+                }
+            }
+            notif.textContent = text;
+            notif.style.display = '';
+            if(duration > 0) {
+                setTimeout(() => {
+                    notif.style.display = 'none';
+                }, duration);
+            }
+        }
+        document.getElementById('toggleRawFormat').onclick = function() {
+            rawFormat = (rawFormat === 'hex') ? 'dec' : 'hex';
+            this.textContent = (rawFormat === 'hex') ? 'Hex' : 'Dec';
+            document.querySelectorAll('.raw-msg').forEach(td => {
+                td.textContent = td.getAttribute(`data-${rawFormat}`);
+            });
+            // Re-apply filters after toggling format
+            filterLogTable();
+        };
+        // On load
+        populateInputs();
+
+        // About modal logic
+        document.getElementById('aboutBtn').onclick = function() {
+            document.getElementById('aboutModal').style.display = 'flex';
+            document.getElementById('aboutYear').textContent = new Date().getFullYear();
+            document.getElementById('aboutLastUpdated').textContent = LAST_UPDATED;
+        };
+        document.getElementById('aboutOkBtn').onclick = function() {
+            document.getElementById('aboutModal').style.display = 'none';
+        };
+        // Optional: close modal when clicking outside the modal box
+        document.getElementById('aboutModal').onclick = function(e) {
+            if (e.target === this) this.style.display = 'none';
+        };
+        // Clear button logic
+        document.getElementById('clearBtn').onclick = function() {
+            document.getElementById('logBody').innerHTML = '';
+            showNotification('Cleared log!');
+        };
+
+        // Export button logic
+        document.getElementById('exportBtn').onclick = function() {
+            const rows = Array.from(document.querySelectorAll('#logBody tr')).filter(row => row.style.display !== 'none');
+            if (rows.length === 0) {
+                showNotification('No data to export!', 2000);
+                return;
+            }
+            // Ask user what to export
+            const choice = prompt(
+                "What do you want to export?\n" +
+                "1: Everything (all columns)\n" +
+                "2: Only Raw Messages\n" +
+                "Enter 1 or 2:",
+                "1"
+            );
+            if (choice === null) return; // Cancelled
+
+            let txt = "";
+            if (choice.trim() === "2") {
+                // Only export Raw Message columns
+                txt = "Raw Message\n";
+                rows.forEach(row => {
+                    let raw = "";
+                    const rawTd = row.children[5];
+                    if (rawTd) {
+                        const rawSpan = rawTd.querySelector('.raw-msg');
+                        raw = rawSpan ? rawSpan.textContent : rawTd.textContent;
+                    }
+                    txt += raw + "\n";
+                });
+            } else {
+                // Export everything (default)
+                const headers = Array.from(document.querySelectorAll('table thead th')).map(th => th.textContent.trim());
+                txt = headers.join('\t') + '\n';
+                rows.forEach(row => {
+                    const cells = Array.from(row.children).map(td => {
+                        // For raw message, get textContent (not HTML)
+                        return td.querySelector('.raw-msg') ? td.querySelector('.raw-msg').textContent : td.textContent;
+                    });
+                    txt += cells.join('\t') + '\n';
+                });
+            }
+            const blob = new Blob([txt], {type: 'text/plain'});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = (choice.trim() === "2" ? 'midi_raw_log.txt' : 'midi_log.txt');
+            document.body.appendChild(a);
+            a.click();
+            setTimeout(() => {
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            }, 100);
+        };
+    </script>
+</body>
+</html>
